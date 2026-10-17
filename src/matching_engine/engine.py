@@ -1,3 +1,4 @@
+from dataclasses import replace
 from decimal import Decimal
 
 from matching_engine.book import OrderBook
@@ -29,6 +30,31 @@ class MatchingEngine:
         if order is None:
             raise OrderNotFoundError(order_id)
         return order
+
+    def modify(self, order_id: str, new_price: Decimal, new_qty: int) -> list[Trade]:
+        """Altera preço e quantidade restante de uma ordem resting.
+
+        - mesmo preço e quantidade menor ou igual: mantém a posição na fila;
+        - preço diferente ou quantidade maior: perde prioridade (fim da fila do nível);
+        - se a ordem alterada passar a cruzar o book, executa como agressora.
+        """
+        order = self.book.get(order_id)
+        if order is None:
+            raise OrderNotFoundError(order_id)
+        replace(order, price=new_price, qty=new_qty)  # revalida sem alterar a ordem original
+
+        if new_price == order.price and new_qty <= order.qty:
+            order.qty = new_qty
+            return []
+
+        self.book.remove(order.id)
+        order.price = new_price
+        order.qty = new_qty
+        order.seq = self._sequence.next()
+        trades = self._match(order)
+        if order.qty > 0:
+            self.book.add(order)
+        return trades
 
     def _new_order(
         self, side: Side, order_type: OrderType, qty: int, price: Decimal | None = None
