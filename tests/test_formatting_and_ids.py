@@ -22,5 +22,5 @@ def test_format_price_has_no_trailing_zeros_or_exponent():
 
 
 def test_trade_output_matches_statement():
-    trade = Trade(Decimal("20"), 150, "identificador_4", "identificador_2")
+    trade = Trade(Decimal("20"), 150, "identificador_4")
     assert format_trade(trade) == "Trade, price: 20, qty: 150"

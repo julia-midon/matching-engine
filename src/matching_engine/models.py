@@ -50,7 +50,8 @@ class Order:
 
 @dataclass(frozen=True)
 class Trade:
+    """Execução agregada: um Trade por nível de preço consumido pela ordem agressora."""
+
     price: Decimal
     qty: int
     aggressor_id: str
-    passive_id: str
