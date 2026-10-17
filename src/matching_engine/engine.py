@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from matching_engine.book import OrderBook
 from matching_engine.ids import SequenceGenerator, make_order_id
-from matching_engine.models import Order, OrderType, Side, Trade
+from matching_engine.models import Order, OrderNotFoundError, OrderType, Side, Trade
 
 
 class MatchingEngine:
@@ -22,6 +22,13 @@ class MatchingEngine:
         """Executa contra a liquidez disponível; o saldo não executado é descartado."""
         order = self._new_order(side, OrderType.MARKET, qty)
         return order, self._match(order)
+
+    def cancel(self, order_id: str) -> Order:
+        """Remove a ordem do book. Ordem inexistente (ou já executada) é um erro explícito."""
+        order = self.book.remove(order_id)
+        if order is None:
+            raise OrderNotFoundError(order_id)
+        return order
 
     def _new_order(
         self, side: Side, order_type: OrderType, qty: int, price: Decimal | None = None

@@ -7,6 +7,10 @@ class InvalidOrderError(ValueError):
     pass
 
 
+class OrderNotFoundError(LookupError):
+    pass
+
+
 class Side(Enum):
     BUY = "buy"
     SELL = "sell"
