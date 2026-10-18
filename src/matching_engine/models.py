@@ -38,7 +38,7 @@ class PegReference(Enum):
         return Side.BUY if self is PegReference.BID else Side.SELL
 
 
-@dataclass
+@dataclass(eq=False)
 class Order:
     id: str
     seq: int  # prioridade temporal; muda quando a ordem perde prioridade
