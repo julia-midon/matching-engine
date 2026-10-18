@@ -18,7 +18,8 @@ class MatchingEngine:
     def __init__(self) -> None:
         self.book = OrderBook()
         self._sequence = SequenceGenerator()  # prioridade de tempo (muda em modify)
-        self._order_numbers = SequenceGenerator()  # numeração pública: só ordens que ficam no book
+        # Numeração pública: toda ordem limit ou pegged aceita (market não consome).
+        self._order_numbers = SequenceGenerator()
         # Pegged orders vivas (no book ou inativas), por id, na ordem de criação.
         self._pegs: dict[str, Order] = {}
         # Último melhor preço não-pegged visto por referência. Enquanto ele não muda (e não há
