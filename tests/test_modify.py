@@ -63,6 +63,20 @@ def test_omitted_price_keeps_current_price():
     engine.modify(first.id, None, 150)
     assert first.price == D("10")
     assert order_ids(engine, Side.BUY) == [second.id, first.id]
+
+
+def test_omitted_quantity_keeps_current_quantity():
+    engine, first, second = two_bids_at_10()
+    engine.modify(first.id, D("9"), None)
+    assert (first.price, first.qty) == (D("9"), 100)
+    assert order_ids(engine, Side.BUY) == [second.id, first.id]
+
+
+def test_modify_without_price_and_quantity_is_rejected():
+    engine, first, second = two_bids_at_10()
+    with pytest.raises(InvalidOrderError):
+        engine.modify(first.id)
+    assert order_ids(engine, Side.BUY) == [first.id, second.id]
     
 
 def test_quantity_is_the_remaining_quantity():

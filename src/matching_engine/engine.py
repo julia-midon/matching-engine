@@ -56,28 +56,38 @@ class MatchingEngine:
         self._reprice_pegs()
         return order
 
-    def modify(self, order_id: str, price: Decimal | None, qty: int) -> list[Trade]:
-        """Altera preço e quantidade restante de uma ordem resting.
+    def modify(
+        self, order_id: str, price: Decimal | None = None, qty: int | None = None
+    ) -> list[Trade]:
+        """Altera preço, quantidade restante ou ambos de uma ordem resting.
 
-        - `price=None` mantém o preço atual (único valor aceito em pegged, cujo preço é derivado);
+        - `None` mantém o valor atual, mas ao menos um dos dois deve ser informado;
+        - em pegged só a quantidade pode mudar, pois o preço é derivado do book;
         - mesmo preço e quantidade menor ou igual: mantém a posição na fila;
         - preço diferente ou quantidade maior: perde prioridade (fim da fila do nível);
         - se a ordem alterada passar a cruzar o book, executa como agressora.
         """
+        if price is None and qty is None:
+            raise InvalidOrderError("nothing to modify: inform a price, a qty or both")
         order = self._find(order_id)
         if order.type is OrderType.PEGGED:
-            return self._modify_pegged(order, price, qty)
+            if price is not None:
+                raise InvalidOrderError(
+                    "a pegged order has no price of its own; only its qty can be modified"
+                )
+            return self._modify_pegged(order, qty)  # qty informada: price e qty não são ambos None
 
         new_price = order.price if price is None else price
-        replace(order, price=new_price, qty=qty)  # revalida sem alterar a ordem original
+        new_qty = order.qty if qty is None else qty
+        replace(order, price=new_price, qty=new_qty)  # revalida sem alterar a ordem original
 
-        if new_price == order.price and qty <= order.qty:
-            order.qty = qty
+        if new_price == order.price and new_qty <= order.qty:
+            order.qty = new_qty
             return []
 
         self.book.remove(order.id)
         order.price = new_price
-        order.qty = qty
+        order.qty = new_qty
         order.seq = self._sequence.next()
         trades = self._match(order)
         if order.qty > 0:
@@ -97,11 +107,7 @@ class MatchingEngine:
             raise OrderNotFoundError(order_id)
         return order
 
-    def _modify_pegged(self, order: Order, price: Decimal | None, qty: int) -> list[Trade]:
-        if price is not None:
-            raise InvalidOrderError(
-                "a pegged order has no price of its own; only its qty can be modified"
-            )
+    def _modify_pegged(self, order: Order, qty: int) -> list[Trade]:
         replace(order, qty=qty)  # revalida sem alterar a ordem original
 
         if qty <= order.qty:
