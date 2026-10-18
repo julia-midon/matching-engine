@@ -10,6 +10,13 @@ def test_sequence_is_monotonic():
     assert [gen.next(), gen.next(), gen.next()] == [1, 2, 3]
 
 
+def test_sequence_peek_does_not_consume():
+    gen = SequenceGenerator()
+    assert [gen.peek(), gen.peek()] == [1, 1]
+    assert gen.next() == 1
+    assert gen.peek() == 2
+    
+
 def test_order_id_format():
     assert make_order_id(1) == "identificador_1"
 

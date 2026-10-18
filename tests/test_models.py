@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from matching_engine.models import InvalidOrderError, Order, OrderType, Side
+from matching_engine.models import InvalidOrderError, Order, OrderType, PegReference, Side
 
 
 def make(**overrides):
@@ -66,3 +66,38 @@ def test_price_rejects_float():
 def test_side_opposite():
     assert Side.BUY.opposite is Side.SELL
     assert Side.SELL.opposite is Side.BUY
+
+
+def test_peg_reference_book_side():
+    assert PegReference.BID.book_side is Side.BUY
+    assert PegReference.OFFER.book_side is Side.SELL
+
+
+@pytest.mark.parametrize(
+    ("side", "reference"),
+    [(Side.BUY, PegReference.BID), (Side.SELL, PegReference.OFFER)],
+)
+def test_pegged_order_may_have_no_price_while_inactive(side, reference):
+    order = make(side=side, type=OrderType.PEGGED, price=None, reference=reference)
+    assert order.price is None
+
+
+def test_pegged_order_requires_reference():
+    with pytest.raises(InvalidOrderError):
+        make(type=OrderType.PEGGED, price=None)
+
+
+@pytest.mark.parametrize(
+    ("side", "reference"),
+    [(Side.SELL, PegReference.BID), (Side.BUY, PegReference.OFFER)],
+)
+def test_pegged_order_must_follow_its_own_side(side, reference):
+    with pytest.raises(InvalidOrderError):
+        make(side=side, type=OrderType.PEGGED, price=None, reference=reference)
+
+
+@pytest.mark.parametrize("order_type", [OrderType.LIMIT, OrderType.MARKET])
+def test_only_pegged_orders_have_a_reference(order_type):
+    price = Decimal("10") if order_type is OrderType.LIMIT else None
+    with pytest.raises(InvalidOrderError):
+        make(type=order_type, price=price, reference=PegReference.BID)

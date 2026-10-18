@@ -26,6 +26,18 @@ class OrderType(Enum):
     PEGGED = "pegged"
 
 
+class PegReference(Enum):
+    """Melhor preço acompanhado por uma pegged order: o bid (compra) ou o offer (venda)."""
+
+    BID = "bid"
+    OFFER = "offer"
+
+    @property
+    def book_side(self) -> Side:
+        """Lado do book onde fica o preço de referência."""
+        return Side.BUY if self is PegReference.BID else Side.SELL
+
+
 @dataclass
 class Order:
     id: str
@@ -33,7 +45,8 @@ class Order:
     side: Side
     type: OrderType
     qty: int  # quantidade restante
-    price: Decimal | None = None
+    price: Decimal | None = None  # em pegged, é derivado do book (None enquanto inativa)
+    reference: PegReference | None = None  # apenas para pegged
 
     def __post_init__(self) -> None:
         if not isinstance(self.qty, int) or isinstance(self.qty, bool) or self.qty <= 0:
@@ -49,7 +62,22 @@ class Order:
             raise InvalidOrderError("limit order requires a price")
         if self.type is OrderType.MARKET and self.price is not None:
             raise InvalidOrderError("market order must not have a price")
-        # PEGGED: o preço é derivado do book; as regras entram no Dia 5.
+
+        if self.type is OrderType.PEGGED:
+            self._validate_peg()
+        elif self.reference is not None:
+            raise InvalidOrderError("only pegged orders have a peg reference")
+
+    def _validate_peg(self) -> None:
+        if self.reference is None:
+            raise InvalidOrderError("pegged order requires a reference (bid or offer)")
+        # Escopo: a pegged acompanha o próprio lado do book (peg to bid = compra,
+        # peg to offer = venda). Assim, reprecificar nunca gera execução.
+        expected_side = self.reference.book_side
+        if expected_side is not self.side:
+            raise InvalidOrderError(
+                f"peg to the {self.reference.value} must be a {expected_side.value} order"
+            )
 
 
 @dataclass(frozen=True)
