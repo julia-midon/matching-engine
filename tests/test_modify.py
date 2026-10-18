@@ -58,6 +58,13 @@ def test_increasing_quantity_loses_priority():
     assert first.qty == 150
 
 
+def test_omitted_price_keeps_current_price():
+    engine, first, second = two_bids_at_10()
+    engine.modify(first.id, None, 150)
+    assert first.price == D("10")
+    assert order_ids(engine, Side.BUY) == [second.id, first.id]
+    
+
 def test_quantity_is_the_remaining_quantity():
     engine = MatchingEngine()
     first, _ = engine.limit(Side.SELL, D("10"), 100)

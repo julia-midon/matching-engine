@@ -1,8 +1,10 @@
 from decimal import Decimal as D
 
+import pytest
+
 from matching_engine.engine import MatchingEngine
 from matching_engine.formatting import format_trade
-from matching_engine.models import Side
+from matching_engine.models import InvalidOrderError, Side
 
 
 def lines(trades):
@@ -30,6 +32,16 @@ def test_order_ids_are_sequential():
     first, _ = engine.limit(Side.BUY, D("10"), 100)
     second, _ = engine.limit(Side.BUY, D("10"), 100)
     assert (first.id, second.id) == ("identificador_1", "identificador_2")
+
+
+def test_invalid_order_does_not_consume_an_id():
+    engine = MatchingEngine()
+    with pytest.raises(InvalidOrderError):
+        engine.limit(Side.BUY, D("10"), 0)
+    with pytest.raises(InvalidOrderError):
+        engine.market(Side.BUY, -1)
+    order, _ = engine.limit(Side.BUY, D("10"), 100)
+    assert order.id == "identificador_1"
 
 
 def test_limit_that_does_not_cross_rests_in_book():
