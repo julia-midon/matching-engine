@@ -1,0 +1,7 @@
+# Enunciado: alteração de preço; a ordem perde prioridade na fila
+limit buy 10 200
+limit buy 9.99 100
+limit sell 10.5 100
+print book
+modify order identificador_1 price 9.98
+print book

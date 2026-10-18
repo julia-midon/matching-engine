@@ -1,0 +1,7 @@
+# Enunciado: ordens limit e market, com preenchimento por ordem de chegada
+limit buy 10 100
+limit sell 20 100
+limit sell 20 200
+market buy 150
+market buy 200
+market sell 200
