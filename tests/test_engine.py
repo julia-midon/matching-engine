@@ -32,6 +32,24 @@ def test_order_ids_are_sequential():
     first, _ = engine.limit(Side.BUY, D("10"), 100)
     second, _ = engine.limit(Side.BUY, D("10"), 100)
     assert (first.id, second.id) == ("identificador_1", "identificador_2")
+    
+
+def test_modify_does_not_consume_an_order_id():
+    engine = MatchingEngine()
+    first, _ = engine.limit(Side.BUY, D("10"), 100)
+    engine.limit(Side.BUY, D("9"), 100)
+    engine.modify(first.id, D("8"), None)  # perde prioridade, mas não é uma ordem nova
+    third, _ = engine.limit(Side.BUY, D("7"), 100)
+    assert third.id == "identificador_3"
+
+
+def test_market_orders_do_not_take_a_public_id():
+    engine = MatchingEngine()
+    engine.limit(Side.SELL, D("10"), 100)
+    market, _ = engine.market(Side.BUY, 10)
+    assert market.id.startswith("market_")
+    following, _ = engine.limit(Side.BUY, D("9"), 10)
+    assert following.id == "identificador_2"
 
 
 def test_invalid_order_does_not_consume_an_id():

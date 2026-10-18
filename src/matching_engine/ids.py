@@ -16,3 +16,8 @@ class SequenceGenerator:
 
 def make_order_id(seq: int) -> str:
     return f"identificador_{seq}"
+
+
+def make_market_order_id(seq: int) -> str:
+    """Ordem a mercado nunca fica no book, então não recebe identificador público."""
+    return f"market_{seq}"

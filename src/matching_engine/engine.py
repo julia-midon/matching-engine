@@ -2,7 +2,7 @@ from dataclasses import replace
 from decimal import Decimal
 
 from matching_engine.book import OrderBook
-from matching_engine.ids import SequenceGenerator, make_order_id
+from matching_engine.ids import SequenceGenerator, make_market_order_id, make_order_id
 from matching_engine.models import (
     InvalidOrderError,
     Order,
@@ -17,9 +17,14 @@ from matching_engine.models import (
 class MatchingEngine:
     def __init__(self) -> None:
         self.book = OrderBook()
-        self._sequence = SequenceGenerator()
+        self._sequence = SequenceGenerator()  # prioridade de tempo (muda em modify)
+        self._order_numbers = SequenceGenerator()  # numeração pública: só ordens que ficam no book
         # Pegged orders vivas (no book ou inativas), por id, na ordem de criação.
         self._pegs: dict[str, Order] = {}
+        # Último melhor preço não-pegged visto por referência. Enquanto ele não muda (e não há
+        # pegged nova), nenhuma pegged precisa ser reposicionada.
+        self._anchors: dict[PegReference, Decimal | None] = {}
+        self._has_unplaced_peg = False
 
     def limit(self, side: Side, price: Decimal, qty: int) -> tuple[Order, list[Trade]]:
         """Executa o que cruzar; o saldo vira ordem resting no book."""
@@ -45,6 +50,7 @@ class MatchingEngine:
         """
         order = self._new_order(side, OrderType.PEGGED, qty, reference=reference)
         self._pegs[order.id] = order
+        self._has_unplaced_peg = True
         self._reprice_pegs()
         return order
 
@@ -132,10 +138,17 @@ class MatchingEngine:
         price: Decimal | None = None,
         reference: PegReference | None = None,
     ) -> Order:
-        # O número só é consumido depois da validação: entrada inválida não abre buraco nos ids.
         seq = self._sequence.peek()
-        order = Order(make_order_id(seq), seq, side, order_type, qty, price, reference)
+        is_public = order_type is not OrderType.MARKET
+        if is_public:
+            order_id = make_order_id(self._order_numbers.peek())
+        else:
+            order_id = make_market_order_id(seq)
+        order = Order(order_id, seq, side, order_type, qty, price, reference)
+        # Os contadores só avançam depois da validação: entrada inválida não abre buraco nos ids.
         self._sequence.next()
+        if is_public:
+            self._order_numbers.next()
         return order
 
     def _match(self, order: Order) -> list[Trade]:
@@ -165,9 +178,19 @@ class MatchingEngine:
 
         Roda ao fim de cada operação, nunca no meio de um matching. Mantém o `seq` original:
         reposicionar automaticamente não é uma alteração da ordem, então não perde prioridade.
+        Só percorre as pegged quando alguma referência andou ou há uma pegged recém-criada;
+        no caso comum o custo de uma operação não depende de quantas pegged existem.
         """
+        if not self._pegs:
+            return
+        anchors = {ref: self.book.best_anchor_price(ref.book_side) for ref in PegReference}
+        if anchors == self._anchors and not self._has_unplaced_peg:
+            return
+        self._anchors = anchors
+        self._has_unplaced_peg = False
+
         for peg in self._pegs.values():
-            target = self.book.best_anchor_price(peg.reference.book_side)
+            target = anchors[peg.reference]
             if peg.price == target:
                 continue
             if peg.price is not None:

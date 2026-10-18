@@ -164,6 +164,14 @@ def test_malformed_commands_are_errors(cli, line):
     assert output[0].startswith("Error: ")
 
 
+def test_ids_stay_sequential_after_modify_and_market(cli):
+    cli.execute("limit buy 10 100")
+    cli.execute("limit buy 9 100")
+    cli.execute("modify order identificador_1 price 8")
+    cli.execute("market sell 10")
+    assert cli.execute("limit buy 7 100") == ["Order created: buy 100 @ 7 identificador_3"]
+
+
 @pytest.mark.parametrize(
     "line",
     [

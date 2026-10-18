@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from matching_engine.formatting import format_price, format_trade
-from matching_engine.ids import SequenceGenerator, make_order_id
+from matching_engine.ids import SequenceGenerator, make_market_order_id, make_order_id
 from matching_engine.models import Trade
 
 
@@ -19,6 +19,10 @@ def test_sequence_peek_does_not_consume():
 
 def test_order_id_format():
     assert make_order_id(1) == "identificador_1"
+
+
+def test_market_order_id_is_not_a_public_identifier():
+    assert make_market_order_id(7) == "market_7"
 
 
 def test_format_price_has_no_trailing_zeros_or_exponent():
